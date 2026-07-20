@@ -1,1 +1,46 @@
-sudo apt update && sudo DEBIAN_FRONTEND=noninteractive apt install -y nmap dirb gobuster nikto sqlmap john hashcat hydra radare2 binwalk exiftool strings curl wget tmux netcat-traditional xxd python3-pip python3-dev git libssl-dev libffi-dev build-essential seclists wordlists wireshark burpsuite aircrack-ng reaver pixiewps crunch bettercap && sudo mkdir -p /usr/share/wordlists/dirb /usr/share/wordlists/dirbuster && sudo wget -O /usr/share/wordlists/rockyou.txt.gz https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt.gz && sudo gzip -d /usr/share/wordlists/rockyou.txt.gz && sudo wget -O /usr/share/wordlists/dirb/common.txt https://raw.githubusercontent.com/v0re/dirb/master/wordlists/common.txt && sudo wget -O /usr/share/wordlists/dirb/big.txt https://raw.githubusercontent.com/v0re/dirb/master/wordlists/big.txt && sudo wget -O /usr/share/wordlists/dirb/small.txt https://raw.githubusercontent.com/v0re/dirb/master/wordlists/small.txt && sudo wget -O /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt https://raw.githubusercontent.com/daviddias/Words/master/Models/wordlists/dirbuster/directory-list-2.3-medium.txt && sudo ln -s /usr/share/seclists /usr/share/wordlists/seclists 2>/dev/null || true && sudo bettercap -eval "caplets.update; q" 2>/dev/null || true && pip3 install pwntools --break-system-packages 2>/dev/null || pip3 install pwntools
+sudo apt update && sudo apt install -y \
+nmap masscan rustscan netcat-traditional socat tcpdump tshark wireshark \
+dnsutils whois traceroute net-tools iproute2 arp-scan netdiscover \
+dirb gobuster ffuf feroxbuster sqlmap nikto wapiti \
+hydra medusa john hashcat hashid crunch cewl cupp \
+binwalk exiftool foremost steghide zsteg \
+aircrack-ng reaver pixiewps hcxdumptool hcxtools bettercap \
+curl wget git tmux vim nano xxd unzip zip p7zip-full tree rlwrap jq \
+python3-full python3-pip python3-venv python3-dev \
+python3-setuptools python3-wheel pipx \
+gcc g++ make build-essential cmake pkg-config \
+libssl-dev libffi-dev libpcap-dev libxml2-dev libxslt1-dev zlib1g-dev \
+default-jdk ruby ruby-dev golang rustc cargo
+
+sudo mkdir -p \
+/usr/share/wordlists \
+/usr/share/wordlists/dirb \
+/usr/share/wordlists/dirbuster \
+/usr/share/seclists
+
+sudo wget -O /usr/share/wordlists/rockyou.txt.gz \
+https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt.gz
+
+sudo gzip -df /usr/share/wordlists/rockyou.txt.gz
+
+sudo git clone --depth=1 https://github.com/danielmiessler/SecLists.git \
+/usr/share/seclists
+
+sudo ln -sf /usr/share/seclists /usr/share/wordlists/SecLists
+
+sudo wget -O /usr/share/wordlists/dirb/common.txt \
+https://raw.githubusercontent.com/v0re/dirb/master/wordlists/common.txt
+
+sudo wget -O /usr/share/wordlists/dirb/big.txt \
+https://raw.githubusercontent.com/v0re/dirb/master/wordlists/big.txt
+
+sudo wget -O /usr/share/wordlists/dirb/small.txt \
+https://raw.githubusercontent.com/v0re/dirb/master/wordlists/small.txt
+
+sudo wget -O /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt \
+https://raw.githubusercontent.com/daviddias/Words/master/Models/wordlists/dirbuster/directory-list-2.3-medium.txt
+
+python3 -m venv ~/.venvs/pwntools
+~/.venvs/pwntools/bin/pip install -U pip pwntools
+
+sudo bettercap -eval "caplets.update; q" || true
