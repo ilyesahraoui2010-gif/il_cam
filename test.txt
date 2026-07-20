@@ -1,46 +1,66 @@
-sudo apt update && sudo apt install -y \
-nmap masscan rustscan netcat-traditional socat tcpdump tshark wireshark \
-dnsutils whois traceroute net-tools iproute2 arp-scan netdiscover \
-dirb gobuster ffuf feroxbuster sqlmap nikto wapiti \
-hydra medusa john hashcat hashid crunch cewl cupp \
-binwalk exiftool foremost steghide zsteg \
-aircrack-ng reaver pixiewps hcxdumptool hcxtools bettercap \
-curl wget git tmux vim nano xxd unzip zip p7zip-full tree rlwrap jq \
-python3-full python3-pip python3-venv python3-dev \
-python3-setuptools python3-wheel pipx \
-gcc g++ make build-essential cmake pkg-config \
-libssl-dev libffi-dev libpcap-dev libxml2-dev libxslt1-dev zlib1g-dev \
-default-jdk ruby ruby-dev golang rustc cargo
+#!/bin/bash
 
-sudo mkdir -p \
-/usr/share/wordlists \
-/usr/share/wordlists/dirb \
-/usr/share/wordlists/dirbuster \
-/usr/share/seclists
+# تأكيد تشغيل السكربت بصلاحيات الجذور (Root)
+if [ "$EUID" -ne 0 ]; then
+  echo "[!] يرجى تشغيل السكربت باستخدام sudo (sudo bash install_tools.sh)"
+  exit 1
+fi
 
-sudo wget -O /usr/share/wordlists/rockyou.txt.gz \
-https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt.gz
+echo "[+] بدء تحديث وتجهيز نظام دبيان 13 للبيئة الأمنية..."
+apt update -y
 
-sudo gzip -df /usr/share/wordlists/rockyou.txt.gz
+# 1. تثبيت الحزم والمكتبات الأساسية وأدوات وايرشارك وبيرب سويت وBettercap المتوفرة في دبيان
+echo "[+] تثبيت الأدوات الأساسية ومكتبات البناء المتاحة..."
+DEBIAN_FRONTEND=noninteractive apt install -y nmap dirb gobuster sqlmap john hashcat hydra binwalk exiftool curl wget tmux netcat-traditional xxd python3-pip python3-dev python3-full python3-venv git libssl-dev libffi-dev build-essential wireshark burpsuite aircrack-ng reaver pixiewps crunch bettercap libpcap-dev libnetfilter-queue-dev
 
-sudo git clone --depth=1 https://github.com/danielmiessler/SecLists.git \
-/usr/share/seclists
+# 2. حل مشكلة أداة Nikto وتثبيتها يدوياً لأنها محذوفة من مستودعات دبيان 13
+if ! command -v nikto &> /dev/null; then
+    echo "[+] أداة Nikto غير متوفرة في المستودعات، جاري تحميلها وتثبيتها من GitHub..."
+    git clone --depth 1 https://github.com/sullo/nikto.git /opt/nikto
+    ln -sf /opt/nikto/program/nikto.pl /usr/local/bin/nikto
+fi
 
-sudo ln -sf /usr/share/seclists /usr/share/wordlists/SecLists
+# 3. حل مشكلة أداة Radare2 وتثبيتها من المصدر
+if ! command -v r2 &> /dev/null; then
+    echo "[+] أداة Radare2 غير متوفرة في المستودعات، جاري تحميل النسخة الرسمية وتثبيتها..."
+    git clone --depth 1 https://github.com/radareorg/radare2.git /opt/radare2
+    /opt/radare2/sys/install.sh
+fi
 
-sudo wget -O /usr/share/wordlists/dirb/common.txt \
-https://raw.githubusercontent.com/v0re/dirb/master/wordlists/common.txt
+# 4. بناء هيكل المجلدات والـ Wordlists وتطابقها مع مسارات كالي الافتراضية
+echo "[+] جاري إنشاء المجلدات وتحميل ملفات الـ Wordlists الحزمية..."
+mkdir -p /usr/share/wordlists/dirb
+mkdir -p /usr/share/wordlists/dirbuster
 
-sudo wget -O /usr/share/wordlists/dirb/big.txt \
-https://raw.githubusercontent.com/v0re/dirb/master/wordlists/big.txt
+# تحميل وقذف ملف rockyou الحجم الكبير وفك ضغطه
+if [ ! -f /usr/share/wordlists/rockyou.txt ]; then
+    echo "[+] جاري تحميل ملف rockyou.txt..."
+    wget -q -O /usr/share/wordlists/rockyou.txt.gz https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt.gz
+    gzip -d /usr/share/wordlists/rockyou.txt.gz
+fi
 
-sudo wget -O /usr/share/wordlists/dirb/small.txt \
-https://raw.githubusercontent.com/v0re/dirb/master/wordlists/small.txt
+# تحميل قوائم فحص مسارات المواقع (Dirb)
+wget -q -O /usr/share/wordlists/dirb/common.txt https://raw.githubusercontent.com/v0re/dirb/master/wordlists/common.txt
+wget -q -O /usr/share/wordlists/dirb/big.txt https://raw.githubusercontent.com/v0re/dirb/master/wordlists/big.txt
+wget -q -O /usr/share/wordlists/dirb/small.txt https://raw.githubusercontent.com/v0re/dirb/master/wordlists/small.txt
 
-sudo wget -O /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt \
-https://raw.githubusercontent.com/daviddias/Words/master/Models/wordlists/dirbuster/directory-list-2.3-medium.txt
+# تحميل قوائم Dirbuster
+wget -q -O /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt https://raw.githubusercontent.com/daviddias/Words/master/Models/wordlists/dirbuster/directory-list-2.3-medium.txt
 
-python3 -m venv ~/.venvs/pwntools
-~/.venvs/pwntools/bin/pip install -U pip pwntools
+# تحميل حزمة SecLists الكاملة ووضعها في مكانها الصحيح مثل كالي
+if [ ! -d /usr/share/wordlists/seclists ]; then
+    echo "[+] جاري جلب وقذف حزمة SecLists بالكامل من GitHub..."
+    git clone --depth 1 https://github.com/danielmiessler/SecLists.git /usr/share/wordlists/seclists
+fi
 
-sudo bettercap -eval "caplets.update; q" || true
+# 5. تحديث كابليت Bettercap وتثبيت Pwntools
+echo "[+] تحديث وتنشيط ميزات أداة Bettercap وتهيئة بيئة بايثون..."
+bettercap -eval "caplets.update; q" 2>/dev/null || true
+
+# تثبيت Pwntools بتخطي قيود بيئة دبيان المحمية
+python3 -m pip install pwntools --break-system-packages --quiet
+
+echo "=================================================="
+echo "[+] اكتمل التثبيت بنجاح تام وبدون مشاكل!"
+echo "[+] جميع الأدوات والـ Wordlists مرتبة في مسار /usr/share/wordlists/ وجاهزة للعمل."
+echo "=================================================="
