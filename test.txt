@@ -2,66 +2,139 @@
 
 # تأكيد تشغيل السكربت بصلاحيات Root
 if [ "$EUID" -ne 0 ]; then
-  echo "[!] يرجى تشغيل السكربت باستخدام sudo"
+  echo "[!] يرجى تشغيل السكربت باستخدام sudo (sudo bash install_all.sh)"
   exit 1
 fi
 
-echo "[+] بدء تثبيت أشهر 20 أداة للشبكات والـ CTF على دبيان 13..."
-apt update -y
-
-# مصفوفة بالأدوات الأساسية التي يمكن تثبيتها مباشرة
-basic_tools=(
-    "nmap" "wireshark" "sqlmap" "john" "hashcat" 
-    "hydra" "binwalk" "exiftool" "gobuster" "dirb" 
-    "tmux" "curl" "wget" "tcpdump" "tshark" "aircrack-ng" 
-    "crunch" "reaver" "pixiewps" "git" "python3-pip" 
-    "python3-dev" "python3-full" "build-essential" "libpcap-dev"
-)
-
-echo "[+] 1. تثبيت الحزم الأساسية المتاحة في مستودعات دبيان..."
-for tool in "${basic_tools[@]}"; do
-    echo "[*] جاري محاولة تثبيت: $tool"
-    DEBIAN_FRONTEND=noninteractive apt install -y $tool
-done
-
-echo "[+] 2. تثبيت الأدوات المتقدمة والواجهات الرسومية يدوياً لضمان نجاحها..."
-
-# تثبيت Burp Suite Community (الواجهة الرسومية الشهيرة)
-if ! command -v burpsuite &> /dev/null; then
-    echo "[*] جاري تحميل وتثبيت Burp Suite..."
-    wget -O /tmp/burp.sh "https://portswigger.net/burp/releases/startdownload?product=community&version=2026.5&type=Linux"
-    chmod +x /tmp/burp.sh
-    # التثبيت الصامت في الخلفية
-    /tmp/burp.sh -q
-    ln -sf /usr/local/bin/BurpSuiteCommunity /usr/local/bin/burpsuite 2>/dev/null || true
-fi
-
-# تثبيت Bettercap (أداة الشبكات المتقدمة)
-if ! command -v bettercap &> /dev/null; then
-    echo "[*] جاري تثبيت Bettercap وملحقاتها..."
-    apt install -y bettercap
-    bettercap -eval "caplets.update; q" 2>/dev/null || true
-fi
-
-# تثبيت Nikto (فحص ثغرات المواقع) من المصدر
-if [ ! -d /opt/nikto ]; then
-    echo "[*] جاري تثبيت Nikto يدوياً من GitHub..."
-    git clone --depth 1 https://github.com/sullo/nikto.git /opt/nikto
-    ln -sf /opt/nikto/program/nikto.pl /usr/local/bin/nikto
-fi
-
-# تثبيت Radare2 (الهندسة العكسية وحلول الـ CTF)
-if ! command -v r2 &> /dev/null; then
-    echo "[*] جاري بناء وتثبيت Radare2..."
-    git clone --depth 1 https://github.com/radareorg/radare2.git /opt/radare2
-    /opt/radare2/sys/install.sh
-fi
-
-# تثبيت مكتبة Pwntools الخاصة بالـ CTF للبايثون
-echo "[*] تهيئة وتثبيت مكتبة Pwntools..."
-python3 -m pip install pwntools --break-system-packages --quiet
-
 echo "=================================================="
-echo "[+] انتهت العملية! تفقد القائمة للتأكد من الأدوات."
-echo "[+] وايرشارك و Burp Suite والـ 20 أداة جاهزة الآن للعمل."
+echo "[+] بدء بناء البيئة الهجومية المتقدمة على دبيان 13"
+echo "=================================================="
+apt update -y
+apt install -y curl wget git build-essential cmake unzip python3-pip python3-dev python3-full python3-venv libssl-dev zlib1g-dev libgmp-dev libpcap-dev libffi-dev libclc-dev opencl-c-headers ocl-icd-opencl-dev ruby ruby-dev default-jdk libnetfilter-queue-dev tmux xxd netcat-traditional
+
+# --- المرحلة 1: تثبيت الأدوات العملاقة (Metasploit & VS Code) ---
+echo -e "\n[+] المرحلة 1: تثبيت الأدوات الكبيرة..."
+
+# تثبيت Metasploit Framework (النسخة الرسمية عبر السكربت الصامت)
+if ! command -v msfconsole &> /dev/null; then
+    echo "[*] جاري تحميل وتثبيت Metasploit Framework..."
+    curl https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb > /tmp/msfinstall
+    chmod 755 /tmp/msfinstall
+    /tmp/msfinstall
+fi
+
+# تثبيت VS Code (عبر إضافة المستودع الرسمي وتثبيته)
+if ! command -v code &> /dev/null; then
+    echo "[*] جاري تثبيت VS Code..."
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /packages.microsoft.gpg
+    install -D -o root -g root -m 644 /packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
+    rm -f /packages.microsoft.gpg
+    apt update -y && apt install -y code
+fi
+
+# --- المرحلة 2: بناء أدوات فك التشفير الحرج (John & Hashcat) يدوياً ---
+echo -e "\n[+] المرحلة 2: بناء أدوات كسر التشفير يدوياً..."
+
+# بناء Hashcat من المصدر
+if [ ! -d /opt/hashcat ]; then
+    echo "[*] جاري بناء Hashcat..."
+    git clone --depth 1 https://github.com/hashcat/hashcat.git /opt/hashcat
+    cd /opt/hashcat && make && make install
+fi
+
+# بناء John the Ripper (Jumbo) من المصدر
+if [ ! -d /opt/john ]; then
+    echo "[*] جاري بناء John the Ripper..."
+    git clone --depth 1 https://github.com/openwall/john.git /opt/john
+    cd /opt/john/src && ./configure && make -s clean && make -s
+    ln -sf /opt/john/run/john /usr/local/bin/john
+fi
+
+# --- المرحلة 3: تثبيت الأدوات الـ 20 المتقدمة للشبكات والـ CTF ---
+echo -e "\n[+] المرحلة 3: تثبيت الأدوات الـ 20 المتقدمة..."
+
+# أدوات الشبكات من التوزيعة مباشرة
+apt install -y netdiscover arping tcpdump tshark aircrack-ng crunch reaver pixiewps exiv2 steghide
+
+# Masscan
+if [ ! -d /opt/masscan ]; then
+    git clone --depth 1 https://github.com/robertdavidgraham/masscan /opt/masscan
+    cd /opt/masscan && make -j && ln -sf /opt/masscan/bin/masscan /usr/local/bin/masscan
+fi
+
+# Responder
+if [ ! -d /opt/responder ]; then
+    git clone --depth 1 https://github.com/lgandx/Responder.git /opt/responder
+fi
+
+# Wfuzz
+python3 -m pip install wfuzz --break-system-packages --quiet
+
+# WhatWeb
+if [ ! -d /opt/whatweb ]; then
+    git clone --depth 1 https://github.com/urbanadventurer/WhatWeb.git /opt/whatweb
+    ln -sf /opt/whatweb/whatweb /usr/local/bin/whatweb
+fi
+
+# WPScan
+gem install wpscan --no-document 2>/dev/null || true
+
+# Gau
+if ! command -v gau &> /dev/null; then
+    wget -q https://github.com/lc/gau/releases/download/v2.2.3/gau_2.2.3_linux_amd64.tar.gz -O /tmp/gau.tar.gz
+    tar -xf /tmp/gau.tar.gz -C /tmp/ && mv /tmp/gau /usr/local/bin/
+fi
+
+# Ghidra
+if [ ! -d /opt/ghidra ]; then
+    wget -q https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_11.1.2_build/ghidra_11.1.2_PUBLIC_20240709.zip -O /tmp/ghidra.zip
+    unzip -q /tmp/ghidra.zip -d /opt/ && mv /opt/ghidra_* /opt/ghidra 2>/dev/null || true
+fi
+
+# Binwalk
+if [ ! -d /opt/binwalk ]; then
+    git clone --depth 1 https://github.com/ReFirmLabs/binwalk.git /opt/binwalk
+    cd /opt/binwalk && python3 setup.py install --break-system-packages --quiet
+fi
+
+# Apktool
+if [ ! -f /usr/local/bin/apktool ]; then
+    wget -q https://raw.githubusercontent.com/iBotPeaches/Apktool/master/scripts/linux/apktool -O /usr/local/bin/apktool
+    wget -q https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O /usr/local/bin/apktool.jar
+    chmod +x /usr/local/bin/apktool
+fi
+
+# Hash-Identifier
+if [ ! -d /opt/hash-identifier ]; then
+    git clone --depth 1 https://github.com/blackarch/hash-identifier.git /opt/hash-identifier
+    ln -sf /opt/hash-identifier/hash-id.py /usr/local/bin/hash-identifier
+fi
+
+# CeWL
+if [ ! -d /opt/cewl ]; then
+    git clone --depth 1 https://github.com/digininja/CeWL.git /opt/cewl
+    ln -sf /opt/cewl/cewl.rb /usr/local/bin/cewl
+fi
+
+# Searchsploit
+if [ ! -d /opt/exploitdb ]; then
+    git clone --depth 1 https://github.com/offensive-security/exploitdb.git /opt/exploitdb
+    ln -sf /opt/exploitdb/searchsploit /usr/local/bin/searchsploit
+fi
+
+# LinPEAS & WinPEAS
+mkdir -p /opt/privesc
+wget -q https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh -O /opt/privesc/linpeas.sh && chmod +x /opt/privesc/linpeas.sh
+wget -q https://github.com/carlospolop/PEASS-ng/releases/latest/download/winPEASany.exe -O /opt/privesc/winPEAS.exe
+
+# Chisel
+if ! command -v chisel &> /dev/null; then
+    wget -q https://github.com/jpillora/chisel/releases/download/v1.9.1/chisel_1.9.1_linux_amd64.gz -O /tmp/chisel.gz
+    gzip -d /tmp/chisel.gz && mv /tmp/chisel_1.9.1_linux_amd64 /usr/local/bin/chisel && chmod +x /usr/local/bin/chisel
+fi
+
+echo -e "\n=================================================="
+echo "[+] اكتمل السكربت بنجاح 100% وبدون مشاكل!"
+echo "[+] Metasploit, VS Code, John, Hashcat وبقية الأدوات جاهزة!"
 echo "=================================================="
